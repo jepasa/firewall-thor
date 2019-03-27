@@ -1,0 +1,77 @@
+########################################################
+#DESCRIPTION = "Firewall Script to IPv4 and IPv6"      #
+#PROCESSNAME = "firewall-thor.sh"                      #
+#VERSION = "5.3.2"                                     #
+#CREATED_BY = "Jeferson Padilha. All rigths reserved." #
+#LICENSE = "MIT License"                               #
+#E-MAIL = "jepasa@jepasa.com"                          #
+#WEBSITE = "http://www.jepasa.com/"                    #
+#USABILITY = "start|stop|restart|menu"                 #
+########################################################
+# See /opt/firewall-thor/README.txt to Configurations  #
+########################################################
+
+Port 22
+
+ListenAddress 0.0.0.0
+
+Protocol 2
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_dsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+UsePrivilegeSeparation yes
+
+KeyRegenerationInterval 3600
+ServerKeyBits 1024
+
+SyslogFacility AUTH
+LogLevel INFO
+
+LoginGraceTime 30
+PermitRootLogin no
+StrictModes yes
+AllowGroups sudo
+
+RSAAuthentication yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile     %h/.ssh/authorized_keys
+
+IgnoreRhosts yes
+RhostsRSAAuthentication no
+
+HostbasedAuthentication no
+#IgnoreUserKnownHosts yes
+
+PermitEmptyPasswords no
+
+ChallengeResponseAuthentication no
+
+#KerberosAuthentication no
+#KerberosGetAFSToken no
+#KerberosOrLocalPasswd yes
+#KerberosTicketCleanup yes
+
+#GSSAPIAuthentication no
+#GSSAPICleanupCredentials yes
+
+X11Forwarding no
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+#UseLogin no
+
+#MaxStartups 10:30:60
+Banner /opt/firewall-thor/list/banner.txt
+
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+UsePAM yes
+UseDNS  no
+
+PasswordAuthentication yes
