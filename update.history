@@ -1,0 +1,207 @@
+########################################################
+#DESCRIPTION = "Firewall Script to IPv4 and IPv6"      #
+#PROCESSNAME = "firewall-thor.sh"                      #
+#VERSION = "5.3.2"                                     #
+#CREATED_BY = "Jeferson Padilha. All rigths reserved." #
+#LICENSE = "MIT License"                               #
+#E-MAIL = "jepasa@jepasa.com"                          #
+#WEBSITE = "http://www.jepasa.com/"                    #
+#USABILITY = "start|stop|restart|menu"                 #
+########################################################
+
+### en
+
+The Firewall-Thor, by Jeferson Padilha, is licensed under
+the MIT License (MIT)
+
+Copyright (c) 2019 jepasa.com - by Jeferson Padilha
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+╔════════════════════════════╣ The Update History ╠══════════════════════════════╗
+║                                                                                ║
+╠══╣ Firewall-Thor v1 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 1.1 ├┐                                                                   ║
+║            ├ Basic locking policies                                            ║
+║            ├ Basic security policies                                           ║
+║            └ Basic redirection policies                                        ║
+╟─────┤ 1.2 ├┐                                                                   ║
+║            ├ Rules against DoS                                                 ║
+║            └ Rules against Port Scanners                                       ║
+╟─────┤ 1.3 ├┐                                                                   ║
+║            ├ Rules against Back Orifice                                        ║
+║            └ Rules against NetBus                                              ║
+╟─────┤ 1.4 ├┐                                                                   ║
+║            ├ Rules against Ping                                                ║
+║            └ Established Session Rules                                         ║
+╟─────┤ 1.5 ├┐                                                                   ║
+║            └ Rules for directing ports with external list                      ║
+║                                                                                ║
+╠══╣ Firewall-Thor v2 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 2.1 ├┐                                                                   ║
+║            ├ Layout with visual identification on the screen                   ║
+║            └ Rules against DDoS                                                ║
+╟─────┤ 2.2 ├┐                                                                   ║
+║            ├ Rules for handling SSH                                            ║
+║            ├ External Door Handling Rule                                       ║
+║            └ Blocking rules of IP external list                                ║
+╟─────┤ 2.3 ├┐                                                                   ║
+║            ├ Rules for port redirection                                        ║
+║            ├ Deployment of the firewall-thor.conf script                       ║
+║            ├ Rules for handling and configuring of ssh.config file             ║
+║            ├ Deployment of variables for configuration                         ║
+║            ├ Deployment of the thorfunctions script                            ║
+║            ├ Deployment of the thorsource script                               ║
+║            └ Deployment of the firewall-thor.sh script                         ║
+║                                                                                ║
+╠══╣ Firewall-Thor v3 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 3.1 ├┐                                                                   ║
+║            └ New visual layout of the screen                                   ║
+╟─────┤ 3.2 ├┐                                                                   ║
+║            └ Deployment of the automatic installer                             ║
+╟─────┤ 3.3 ├┐                                                                   ║
+║            └ Deployment of the automatic initializer                           ║
+╟─────┤ 3.4 ├┐                                                                   ║
+║            └ Refactoring of configuration variables                            ║
+╟─────┤ 3.5 ├┐                                                                   ║
+║            └ Refactoring of installation backups                               ║
+╟─────┤ 3.6 ├┐                                                                   ║
+║            ├ Refactoring of SSH handling                                       ║
+║            └ Supporte of Custom Port for SSH                                   ║
+╟─────┤ 3.7 ├┐                                                                   ║
+║            ├ AntiSpoofing Rules                                                ║
+║            └ ICMP redirect rules                                               ║
+╟─────┤ 3.8 ├┐                                                                   ║
+║            └ Refactoring the ICMP handling rules                               ║
+╟─────┤ 3.9 ├┐                                                                   ║
+║            └ IPv4 support for Mac Address                                      ║
+║                                                                                ║
+╠══╣ Firewall-Thor v4 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 4.1 ├┐                                                                   ║
+║            ├ IPV6 support                                                      ║
+║            ├ Support for IPv6 redirection                                      ║
+║            ├ IPv6 support for Mac Address                                      ║
+║            └ Support for IPv6 blocking                                         ║
+║                                                                                ║
+╠══╣ Firewall-Thor v5 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 5.1 ├┐                                                                   ║
+║            ├ New screen layout                                                 ║
+║            ├ Interactive dashboard in status display                           ║
+║            └ Support, configuration and manipulation of Logs                   ║
+╟─────┤ 5.2 ├┐                                                                   ║
+║            ├ Rules against Neighbour Table Overflow                            ║
+║            ├ IP_FORWARDER Support                                              ║
+║            └ NAT Support                                                       ║
+╟─────┤ 5.3 ├┐                                                                   ║
+║            ├ Support for configurable IPTABLES Modules                         ║
+║            ├ Transparent Proxy Support                                         ║
+║            └ Diagramming of Update History                                     ║
+║                                                                                ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+### pt_BR
+
+O Firewall-Thor, de Jeferson Padilha, está licenciado sob
+a Licensa MIT (MIT)
+
+Direitos de Cópia (c) 2019 a jepasa.com - by Jeferson Padilha
+
+A permissão é concedida, a título gratuito, para qualquer pessoa que obtenha uma cópia deste software e arquivos de documentação associados (o "Software"), para lidar com o Software sem restrição, incluindo, sem limitação dos direitos de uso, copiar, modificar, mesclar , publicar, distribuir, sublicenciar e / ou vender cópias do Software, e para permitir que as pessoas às quais o Software é fornecido a fazê-lo, mediante as seguintes condições:
+
+O aviso de direito autoral acima e este aviso de permissão devem ser incluídos em todas as cópias ou partes substanciais do Software.
+
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM QUALQUER TIPO DE GARANTIA, EXPRESSA OU IMPLÍCITA, INCLUINDO MAS NÃO SE LIMITANDO A GARANTIAS DE COMERCIABILIDADE, ADEQUAÇÃO A UMA FINALIDADE ESPECÍFICA E NÃO VIOLAÇÃO. EM NENHUM CASO OS AUTORES OU OS DETENTORES DOS DIREITOS AUTORAIS SE RESPONSABILIZARÃO POR QUALQUER RECLAMAÇÃO, DANOS OU QUALQUER OUTRA RESPONSABILIDADE, SEJA EM RAZÃO DE CONTRATO, ATO ILÍCITO OU DE OUTRA FORMA, RESULTANTES DE OU EM CONEXÃO COM O SOFTWARE OU A UTILIZAÇÃO OU OUTRAS NEGOCIAÇÕES NO SOFTWARE.
+#
+╔══════════════════════╣ Histórico de Atualizações ╠═════════════════════════════╗
+║                                                                                ║
+╠══╣ Firewall-Thor v1 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 1.1 ├┐                                                                   ║
+║            ├ Políticas basicas de bloqueio                                     ║
+║            ├ Políticas básicas de segurança                                    ║
+║            └ Políticas básicas de redirecionamento                             ║
+╟─────┤ 1.2 ├┐                                                                   ║
+║            ├ Regras contra DoS                                                 ║
+║            └ Regras contra Port Scanners                                       ║
+╟─────┤ 1.3 ├┐                                                                   ║
+║            ├ Regras contra Back Orifice                                        ║
+║            └ Regras contra NetBus                                              ║
+╟─────┤ 1.4 ├┐                                                                   ║
+║            ├ Regras contra Ping                                                ║
+║            └ Regras de sessão estabelecida                                     ║
+╟─────┤ 1.5 ├┐                                                                   ║
+║            └ Regras de direcionamento de portas com lista externa              ║
+╠══╣ Firewall-Thor v2 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 2.1 ├┐                                                                   ║
+║            ├ Layout com identificação visual no ecrã                           ║
+║            └ Regras contra DDoS                                                ║
+╟─────┤ 2.2 ├┐                                                                   ║
+║            ├ Regras para manipulação de SSH                                    ║
+║            ├ Regra de manipulação externa de portas                            ║
+║            └ Regras de bloqueio da lista externa de IP                         ║
+╟─────┤ 2.3 ├┐                                                                   ║
+║            ├ Regras de redirecinamento de portas                               ║
+║            ├ Implantação do script firewall-thor.conf                          ║
+║            ├ Regras de manipulação e configuração do sshd.conf                 ║
+║            ├ Implantação de variáveis para onfiguração                         ║
+║            ├ Implantação do script thorfunctions                               ║
+║            ├ Implantação do script thorsource                                  ║
+║            └ Implantação do script firewall-thor.sh                            ║
+╠══╣ Firewall-Thor v3 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 3.1 ├┐                                                                   ║
+║            └ Novo layout visual do ecrã                                        ║
+╟─────┤ 3.2 ├┐                                                                   ║
+║            └ Implantação do instalador automático                              ║
+╟─────┤ 3.3 ├┐                                                                   ║
+║            └ Implantação do inicializador automático                           ║
+╟─────┤ 3.4 ├┐                                                                   ║
+║            └ Redefinição das variáveis de configuração                         ║
+╟─────┤ 3.5 ├┐                                                                   ║
+║            └ Redefinição dos backups da instalação                             ║
+╟─────┤ 3.6 ├┐                                                                   ║
+║            ├ Redefinição da manipulação de SSH                                 ║
+║            └ Suporte a Custom Port para SSH                                    ║
+╟─────┤ 3.7 ├┐                                                                   ║
+║            ├ Regras AntiSpoofing                                               ║
+║            └ Regras de direcionamento de ICMP                                  ║
+╟─────┤ 3.8 ├┐                                                                   ║
+║            └ Revisão das regras de manipulação de ICMP                         ║
+╟─────┤ 3.9 ├┐                                                                   ║
+║            └ Suporte a IP por Mac Address                                      ║
+╠══╣ Firewall-Thor v4 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 4.1 ├┐                                                                   ║
+║            ├ Suporte ao IPv6                                                   ║
+║            ├ Suporte ao redirecinamento em IPv6                                ║
+║            ├ Suporte a IPv6 por Mac Address                                    ║
+║            └ Suporte a bloqueio de IPv6                                        ║
+╠══╣ Firewall-Thor v5 ╠══════════════════════════════════════════════════════════╣
+╟─────┤ 5.1 ├┐                                                                   ║
+║            ├ Novo layout do ecrã                                               ║
+║            ├ Painel interativo na visualização do status                       ║
+║            └ Suporte, configuração e manipulação de Logs                       ║
+╟─────┤ 5.2 ├┐                                                                   ║
+║            ├ Regras contra Neighbour Table Overflow                            ║
+║            ├ Suporte ao IP_FORWARDER                                           ║
+║            └ Suporte ao NAT                                                    ║
+╟─────┤ 5.3 ├┐                                                                   ║
+║            ├ Suporte a Módulso IPTABLES configuráveis                          ║
+║            ├ Suporte ao Proxy Transparent                                      ║
+║            └ Diagramação do Histórico de Atualizações                          ║
+║                                                                                ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝

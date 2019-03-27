@@ -1,0 +1,221 @@
+########################################################
+#DESCRIPTION = "Firewall Script to IPv4 and IPv6"      #
+#PROCESSNAME = "firewall-thor.sh"                      #
+#VERSION = "5.3.2"                                     #
+#CREATED_BY = "Jeferson Padilha. All rigths reserved." #
+#LICENSE = "MIT License"                               #
+#E-MAIL = "jepasa@jepasa.com"                          #
+#WEBSITE = "http://www.jepasa.com/"                    #
+#USABILITY = "start|stop|restart|menu"                 #
+########################################################
+#
+O Firewall-Thor, de Jeferson Padilha, está licenciado sob
+a Licensa MIT (MIT)
+
+Direitos de Cópia (c) 2019 a jepasa.com - by Jeferson Padilha
+
+A permissão é concedida, a título gratuito, para qualquer pessoa que obtenha uma cópia deste software e arquivos de documentação associados (o "Software"), para lidar com o Software sem restrição, incluindo, sem limitação dos direitos de uso, copiar, modificar, mesclar , publicar, distribuir, sublicenciar e / ou vender cópias do Software, e para permitir que as pessoas às quais o Software é fornecido a fazê-lo, mediante as seguintes condições:
+
+O aviso de direito autoral acima e este aviso de permissão devem ser incluídos em todas as cópias ou partes substanciais do Software.
+
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM QUALQUER TIPO DE GARANTIA, EXPRESSA OU IMPLÍCITA, INCLUINDO MAS NÃO SE LIMITANDO A GARANTIAS DE COMERCIABILIDADE, ADEQUAÇÃO A UMA FINALIDADE ESPECÍFICA E NÃO VIOLAÇÃO. EM NENHUM CASO OS AUTORES OU OS DETENTORES DOS DIREITOS AUTORAIS SE RESPONSABILIZARÃO POR QUALQUER RECLAMAÇÃO, DANOS OU QUALQUER OUTRA RESPONSABILIDADE, SEJA EM RAZÃO DE CONTRATO, ATO ILÍCITO OU DE OUTRA FORMA, RESULTANTES DE OU EM CONEXÃO COM O SOFTWARE OU A UTILIZAÇÃO OU OUTRAS NEGOCIAÇÕES NO SOFTWARE.
+#
+========| Firewall-Thor Designed for IPTABLES |========
+#
+1º - Descompacte o Firewall-thor na pasta atual em que você o baixou no servidor e, em seguida, entre no diretório descompactado firewall-thor:
+	tar -zxvf firewall-thor_vX.X.x.tar.gz
+	cd firewall-thor
+#
+2º - No script firewall-thor.conf você será capaz de editar e personalizar as configurações do Firewall-Thor
+		a) Para configuração de endereços IP por hostname
+			i  - MYIPV4ADDRESS="192.168.10.254"				# Defina o IPv4 do servidor
+			II - MYIPV6ADDRESS="::1"						# Defina o IPv6 do servidor
+		b) Configurar suporte ao IP_FORWARD
+			i  - IPFORWARDSUPPORT="no"                      # Habilita o redirecionamento de portas e IP_FORWARD (no/yes) - Recommended="no" 
+			ii - IPFORWARDETH="eth0"                        # Define a interface usada no redirecionamento
+		c) Para configurar suporte ao NAT
+			i  - NATFORWARDSUPPORT="no"                     # Habilita o Compartilhamento da Internet como Proxy (no/yes) - Recomended="no" 
+			ii - NATFORWARDETH="eth0"                       # Define a interface externa compartilhada como NAT as demais interfaces do servidor
+		d) Para configurar o suporte a ICMP
+			i   - ICMPSUPPORT="no"							# Habilitar resposta ao ping (no/yes) - Recommended="no"
+			ii  - ICMPIPV4RANGEALLOW="192.168.10.0/20"      # Range de IP a ser respondido no Ping do IPv4 (0/0 para todos)
+			iii - ICMPIPV6RANGEALLOW="::1/128"              # Range de IP a ser respondido no Ping do IPv6 (0/0 para todos)
+		e) Para configurar o suporte IPTABLES ao IPV6
+			i - IPV6SUPPORT="no"							# Habilitar IPv6 no Firewall? (no/yes) - Recommended="no"
+		f) Para configurar o suporte dos LOGs IPTABLES
+			i  - LOGSUPPORT="no"							# Habilitar os logs iptables? (no/yes)
+        	ii - LOGSLEVEL="6"								# Definir o nivel de prioridade dos logs
+        								0 or ! = EMERG
+        								1 or a = ALERT
+        								2 or c = CRIT
+        								3 or e = ERR
+        								4 or w = WARNING
+        								5 or n = NOTICE
+        								6 or i = INFO
+        								7 or d = DEBUG
+		e) Para configurar o suporte ao SSH
+			i    - SSHDSUPPORT="yes"						 # Customizar a segurança do (no/yes). Se der erro, desinstale o Firewall e marque "no" ao reinstalar - Recommended="yes"
+			ii   - SSHDPATH="/etc/ssh/sshd_config"			 # Definir o caminho do script de configuração do SSHD
+			iii  - SSHDNEWPORT="22"							 # Definir a porta SSH
+			iv   - SSHDLISTENADDRESS="0.0.0.0"               # Especifique IP da internface com permissão de acesso SSH. Verificar porta SSH em list/port_allow.list
+			v    - SSHDPROTOCOL="2"							 # Definir a versão do protocolo SSH - Recommended="2"
+			vi   - SSHDLOGINGRACETIME="30"					 # Tempo limite para uma conexão no SSH do servidor, em segundos - Recommended="30"
+			vii  - SSHDROOTLOGI="no"						 # Permitir login SSH com o usuário root? (yes/no) - Recommended="no"
+			iix  - SSHDALLOWLOGIN="yes"						 # Definir o grupo exclusivo para acesso via SSH (padrão 'sudo') - Recommended="yes"
+			ix   - SSHDX11FORWARDING="no"					 # Permitir acesso remoto em modo gráfico X11 - Recommended="no"
+			x    - SSHDBANNERPATH="$FPATH/list/banner.txt"	 # Definir o caminho do Banner do SSH
+		f) Para configurar o suporte a verificação por MAC ADDRESS
+			i    - MACADDRESSSUPPORT="no"                    # Habilita liberação de acesso apenas por Mac Address (no/yes) - Recommended="no" || Recommended if MACADDRESSSTOIPSUPPORT="no"
+			ii   - MACADDRESSSTOIPSUPPORT="no"               # Habilita liberação de acesso com IP específico para cada Mac Address (no/yes) - Recommended="no" || Recommended if MACADDRESSSUPPORT="no"
+		g) Para configurar o suporte ao erro NEIGHTBOUR OVERFLOW
+			i    - SYSNEIGHBOURSUPPORT="no"                  # Habilitar suporte ao erro NEIGHTBOUR TABLE OVERFLOW - Recommended="no"
+			ii   - SYSNEIGHBOURIPV4="/proc/sys/net/ipv4/neigh/default" # Caminho do diretório NEIGHTBOUR em IPv4
+			iii  - SYSNEIGHBOURIPV6="/proc/sys/net/ipv6/neigh/default" # Caminho do diretório NEIGHTBOUR em IPv6
+#
+3º - No diretório firewall-thor/list, edite e adicione as listas de liberação e bloqueios dos componentes do Firewall
+		a) O arquivo list/mac_allow.list contem a lista de MAC ADDRESS para liberação com verificação (disponível a partir da versão 3.9)
+			i - Syntax: status_pc;mac_pc;name_pc
+				Exemplo: a;00:0E:A6:8E:1F:F2;Stive
+				 		 b;00:0F:EA:2A:E0:36;Any
+
+				PS. Atribuição: 'a' = allow e 'b' = block
+					Adicione ou remova intens da lista, respeitando a Syntax. Este script não suporta tag de comentário (como o #, por exemplo).
+#
+		b) O arquivo list/port_allow.list contem a regra, protocolo e o numero das portas a serem liberadas
+			i - Syntax: CHAIN;protocol;port_range;IPv4;IPv6
+				Exemplo: INPUT;tcp;22;0/0;::1/128
+						 INPUT;tcp;53;0/0;::/0
+						 INPUT;tcp;80;0/0;::/0
+						 INPUT;tcp;443;0/0;::/0
+						 INPUT;udp;53;0/0;::/32
+						 INPUT;udp;80;0/0;:/0
+						 INPUT;udp;123;0/0;::1/128
+						 INPUT;udp;161;0/0;::/128
+						 INPUT;udp;443;0/0;::/0
+						 OUTPUT;tcp;53;0/0;::/0
+						 OUTPUT;tcp;80;0/0;::/0
+						 OUTPUT;tcp;443;0/0;::/0
+						 OUTPUT;udp;53;0/0;::/0
+						 OUTPUT;udp;80;0/0;::/0
+						 OUTPUT;udp;123;0/0;::1/128
+						 OUTPUT;udp;161;0/0;::1/128
+						 OUTPUT;udp;443;0/0;::/0
+
+				OBS. Adicione ou remova linha por linha. Este script não suporta tags do tipo comentário (como o #, por exemplo). Para anular o IPv4 ou IPv6 defina 'no' no lugar do IP
+#
+		c) O arquivo list/port_deny.list contem as regras, protocolo e numero das portas a serem bloqueadas
+			i - Syntax: CHAIN;protocol;port_range
+				Exemplo: INPUT;tcp;0:21
+						 INPUT;tcp;23:52
+						 INPUT;tcp;54:79
+						 INPUT;tcp;81:442
+						 INPUT;tcp;444:65535
+						 INPUT;udp;0:52
+						 INPUT;udp;54:122
+						 INPUT;udp;124:160
+						 INPUT;udp;162:65535
+						 OUTPUT;tcp;0:33
+						 OUTPUT;tcp;35:52
+						 OUTPUT;tcp;54:79
+						 OUTPUT;tcp;81:442
+						 OUTPUT;tcp;444:65535
+						 OUTPUT;udp;0:52
+						 OUTPUT;udp;54:79
+						 OUTPUT;udp;81:122
+						 OUTPUT;udp;124:160
+						 OUTPUT;udp;162:442
+						 OUTPUT;udp;444:65535
+						 FORWARDER;tcp;0:65535
+
+				OBS. Adicione ou remova a linha completa. Este scrip não suporta tag do tipo comentário (como o #, por exemplo).
+#
+		d) O arquivo list/redirect.list contem a lista de portas e IPs a serem redirecionados
+			i - Syntax: protocol;port;ip;name_server;name_host
+				Exemplo: tcp;4662;192.168.253.2;EMULE;debian-me
+						 udp;4672;192.168.253.2;EMULE;debian-home
+						 tcp;5900;192.168.253.2;VNC;debian-home
+
+				OBS. Adicione ou remova e linha inteira. Este script não suporta tag do tipo comentário (como o #, por exemplo).
+#
+		e)	O arquivo list/ipv4_deny.list contem a lista de IPv4 a serem bloqueados
+			i - Syntax: CHAIN;ipaddress/mask or CHAIN;ipaddressonly
+				Exemplo INPUT;43.229.53.0/24
+						 OUTPUT;43.229.53.0/24
+						 INPUT;36.70.19.0/24
+						 INPUT;193.107.16.208
+
+				OBS. Consulte o bloco de endereço de IPv4 para saber a mascara a utilizar:
+				Must Begin With		Number of IP Addresses		For Last Address Add
+				xx.xx.xx.xx/32 		1			1				0.0.0.0
+				xx.xx.xx.2n/31		2			2				0.0.0.1
+				xx.xx.xx.4n/30		4			4				0.0.0.3
+				xx.xx.xx.8n/29		8			8				0.0.0.7
+				xx.xx.xx.16n/28		16			16				0.0.0.15
+				xx.xx.xx.32n/27		32			32				0.0.0.31
+				xx.xx.xx.64n/26		64			64				0.0.0.63
+				xx.xx.xx.128n/25	128			128				0.0.0.127
+				xx.xx.xx.0/24		256			256				0.0.0.255
+				xx.xx.2n.0/23		512			256x2			0.0.1.255
+				xx.xx.4n.0/22		1024		256x4			0.0.3.255
+				xx.xx.8n.0/21		2048		256x8			0.0.7.255
+				xx.xx.16n.0/20		4096		256x16			0.0.15.255
+				xx.xx.32n.0/19		8192		256x32			0.0.31.255
+				xx.xx.64n.0/18		16384		256x64			0.0.63.255
+				xx.xx.128n.0/17		32768		256x128			0.0.127.255
+				xx.xx.0.0/16		65536		256x256			0.0.255.255
+				xx.2n.0.0/15		131072		256x256x2		0.1.255.255
+				xx.4n.0.0/14		262144		256x256x4		0.3.255.255
+				xx.8n.0.0/13		524288		256x256x8		0.7.255.255
+				xx.16n.0.0/12		1048576		256x256x16		0.15.255.255
+				xx.32n.0.0/11		2097152		256x256x32		0.31.255.255
+				xx.64n.0.0/10		4194304		256x256x64		0.63.255.255
+				xx.128n.0.0/9		8388608		256x256x128		0.127.255.255
+				xx.0.0.0/8			16777216	256x256x256		0.255.255.255
+				2n.0.0.0/7			33554432	256x256x256x2	1.255.255.255
+				4n.0.0.0/6			67108864	256x256x256x4	3.255.255.255
+				8n.0.0.0/5			134217728	256x256x256x8	7.255.255.255
+				16n.0.0.0/4			268435456	256x256x256x16	15.255.255.255
+				32n.0.0.0/3			536870912	256x256x256x32	31.255.255.255
+				64n.0.0.0/2			1073741824	256x256x256x64	63.255.255.255
+				128n.0.0.0/1		2147483648	256x256x256x128	127.255.255.255
+				0.0.0.0/0			4294967296	256x256x256x256	255.255.255.255
+#
+		f)	O arquivo list/ipv6_deny.list contem a lista de IPv6 a serem bloqueados
+			i - Syntax: CHAIN;ipaddress/mask or CHAIN;ipaddressonly
+				Exemplo: INPUT;2803:f800::/32
+						 OUTPUT;2803:f800::/32
+						 INPUT;2606:4700::/32
+
+				OBS. Consulte o bloco de endereço de IPv6 para saber a mascara a utilizar:
+				https://www.ripe.net/about-us/press-centre/understanding-ip-addressing
+#
+		g) O arquivo list/ipv4tomac_allow.list contem a lista de IPv4 para cada MAC ADDRESS liberado com verificação (disponível a partir da versão 3.9)
+			i - Syntax: status_pc;ip_pc;mac_pc;name_pc
+				Exemplo: a;192.168.253.2;00:0E:A6:8E:1F:F2;Stive
+				 		 b;192.168.253.3;00:0F:EA:2A:E0:36;Any
+
+				PS. Atribuição: 'a' = allow e 'b' = block
+					Adicione ou remova intens da lista, respeitando a Syntax. Este scritp não suporta tag de comentário (como o #, por exemplo).
+#
+		h) O arquivo list/ipv6mac_allow.list contem a lista de IPv6 para cada MAC ADDRESS liberado com verificação (disponível a partir da versão 3.9)
+			i - Syntax: status_pc;ip_pc;mac_pc;name_pc
+				Exemplo: a;::1;00:0E:A6:8E:1F:F2;Stive
+				 		 b;FF02::1;00:0F:EA:2A:E0:36;Any
+
+				PS. Atribuição: 'a' = allow e 'b' = block
+					Adicione ou remova intens da lista, respeitando a Syntax. Este scritp não suporta tag de comentário (como o #, por exemplo).
+#
+4º - Depois de configurar o Firewall-Thor, adicionando as liberações e bloqueis, é o momento de instalar o Firewall-Thor:
+		./install-remove_thor.sh
+#
+5º - O script de instalação adiciona as regras nativas de auto inicialização do Firewall-Thor no sistema
+#
+6º - Reinicie seu servidor para testar. Em seguida rode o seguinte comando para verificar as regras:
+		service firewall-thor menu
+#
+PS. Para start, stop ou restart do Firewall-Thor, rode uma das seguintes linhas de comando:
+	service firewall-thor start
+	service firewall-thor stop
+	service firewall-thor restart
+	service firewall-thor menu
+#
