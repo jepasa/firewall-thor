@@ -1,0 +1,712 @@
+#!/bin/bash 
+#DESCRIPTION = "Firewall Script to IPv4 and IPv6"      #
+#PROCESSNAME = "firewall-thor.sh"                      #
+#VERSION = "5.3.2"                                     #
+#CREATED_BY = "Jeferson Padilha. All rigths reserved." #
+#LICENSE = "MIT License"                               #
+#E-MAIL = "jepasa@jepasa.com"                          #
+#WEBSITE = "http://www.jepasa.com/"                    #
+#USABILITY = "start|stop|restart|menu"                 #
+########################################################
+#           See README.txt to Configurations           #
+########################################################
+case "$1" in
+	run)
+#
+#	TRATAMENTO DO SSHD
+	if [[ $SSHDSUPPORT == "yes" ]]; then	
+		sed -i "s/^Port.*/Port $SSHDNEWPORT/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^ListenAddress.*/ListenAddress $SSHDLISTENADDRESS/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^Protocol.*/Protocol $SSHDPROTOCOL/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^LoginGraceTime.*/LoginGraceTime $SSHDLOGINGRACETIME/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^PermitRootLogin.*/PermitRootLogin $SSHDROOTLOGI/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^AllowGroups.*/AllowGroups sudo/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^X11Forwarding.*/X11Forwarding $SSHDX11FORWARDING/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+		sed -i "s/^Banner.*/Banner $SSHDBANNERPATH/" $SSHDPATH 1> /dev/null 2> /dev/stdout
+	fi
+	/etc/init.d/ssh restart 1> /dev/null 2> /dev/stdout
+#
+#	TRATAMENTO DO NEIGHTBOUR TABLE OVERFLOW
+	if [[ $SYSNEIGHBOURSUPPORT == "yes" ]]; then
+		echo 1024 > /proc/sys/net/ipv4/neigh/default/gc_thresh1
+		echo 2048 > /proc/sys/net/ipv4/neigh/default/gc_thresh2
+		echo 4096 > /proc/sys/net/ipv4/neigh/default/gc_thresh3
+
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			echo 1024 > /proc/sys/net/ipv6/neigh/default/gc_thresh1
+			echo 2048 > /proc/sys/net/ipv6/neigh/default/gc_thresh2
+			echo 4096 > /proc/sys/net/ipv6/neigh/default/gc_thresh3
+		fi
+	fi
+#
+# 	LIMPANDO REGRAS DE FIREWALL ANTIGAS
+	#IPV4 
+	$IPTABLES -F
+	$IPTABLES -F INPUT
+	$IPTABLES -F OUTPUT
+	$IPTABLES -F FORWARD
+	$IPTABLES -t mangle -F
+	$IPTABLES -t nat -F
+	$IPTABLES -X
+	#IPV6
+	if [[ -e $IPV6TABLES ]]; then
+		$IPV6TABLES -F
+		$IPV6TABLES -F INPUT
+		$IPV6TABLES -F OUTPUT
+		$IPV6TABLES -F FORWARD
+		$IPV6TABLES -t mangle -F
+		$IPV6TABLES -t mangle -X
+	fi
+#
+#	APLICANDO NOVAS REGRAS DE FIREWALL
+	#IPV4
+	$IPTABLES -P INPUT DROP
+	$IPTABLES -P OUTPUT ACCEPT
+	if [ $IPFORWARDSUPPORT == "yes" ] || [ $NATFORWARDSUPPORT == "yes" ]; then
+		$IPTABLES -P FORWARD ACCEPT
+	else
+		$IPTABLES -P FORWARD DROP
+	fi
+	#IPV6
+	if [[ -e $IPV6TABLES ]]; then
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -P INPUT DROP
+			$IPV6TABLES -P OUTPUT ACCEPT
+			if [ $IPFORWARDSUPPORT == "yes" ] || [ $NATFORWARDSUPPORT == "yes" ]; then
+				$IPV6TABLES -P FORWARD ACCEPT
+			else
+				$IPV6TABLES -P FORWARD DROP
+			fi
+		else
+			$IPV6TABLES -P INPUT DROP
+			$IPV6TABLES -P OUTPUT DROP
+			$IPV6TABLES -P FORWARD DROP
+
+		fi
+	fi
+#
+#	TRATAMENTO DO PROTOCOLO IPV6
+	if [[ $IPV6SUPPORT == "no" ]]; then
+		if [[ -e $SYSCTLCONF ]]; then
+            $MYSYSCTL -w net.ipv6.conf.all.disable_ipv6="1" 1> /dev/null 2> /dev/stdout
+            $MYSYSCTL -w net.ipv6.conf.default.disable_ipv6="1" 1> /dev/null 2> /dev/stdout
+            $MYSYSCTL -w net.ipv6.conf.lo.disable_ipv6="1" 1> /dev/null 2> /dev/stdout
+            $MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+		fi		
+		elif [[ $IPV6SUPPORT == "yes" ]]; then
+			if [[ -e $SYSCTLCONF ]]; then
+	            $MYSYSCTL -w net.ipv6.conf.all.disable_ipv6="0" 1> /dev/null 2> /dev/stdout
+	            $MYSYSCTL -w net.ipv6.conf.default.disable_ipv6="0" 1> /dev/null 2> /dev/stdout
+	            $MYSYSCTL -w net.ipv6.conf.lo.disable_ipv6="0" 1> /dev/null 2> /dev/stdout
+				$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+			fi
+		else
+			nosintax
+	fi
+#
+#       ACELERANDO AS CONEXOES HTTP
+        $IPTABLES -t mangle -A OUTPUT -p tcp -j TOS --sport 80 --set-tos 0x08
+        $IPTABLES -t mangle -A PREROUTING -p tcp --dport 80 -j TOS --set-tos 0x08
+        $IPTABLES -t mangle -A OUTPUT -p tcp -j TOS --sport 80 --set-tos 0x10
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		$IPV6TABLES -t mangle -A OUTPUT -p tcp -j TOS --sport 80 --set-tos 0x08
+        	$IPV6TABLES -t mangle -A PREROUTING -p tcp --dport 80 -j TOS --set-tos 0x08
+	        $IPV6TABLES -t mangle -A OUTPUT -p tcp -j TOS --sport 80 --set-tos 0x10
+	fi
+#
+#       LIBERANDO ACESSO DE IP ESPECIFICO
+
+#
+#	DESABILITAR ACESSO REMOTO AO PORTMAP NO SISTEMA
+	if [[ -e $HOSTSALLOWCONF ]]; then
+		echo "portmap: localhost" > $HOSTSALLOWCONF
+		echo "portmap: 127.0.0.1" >> $HOSTSALLOWCONF
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			echo "portmap: ::1" >> $HOSTSALLOWCONF
+		fi
+	fi
+	if [[ -e $HOSTSDENYCONF ]]; then
+		echo "portmap: ALL" > $HOSTSDENYCONF
+	fi
+#
+#	HABILITANDO FLUXO INTERNO DE PROCESSOS LOOPBACK
+	#IPV4
+	$IPTABLES -I INPUT -i lo -j ACCEPT
+	$IPTABLES -I OUTPUT -o lo -j ACCEPT
+	#IPV6
+	if [[ -e $IPV6TABLES ]]; then
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -I INPUT -i lo -j ACCEPT
+			$IPV6TABLES -I OUTPUT -o lo -j ACCEPT
+			else
+				$IPV6TABLES -I INPUT -i lo -j DROP
+				$IPV6TABLES -I OUTPUT -o lo -j DROP
+		fi
+	fi
+#
+#	BLOQUEANDO IPs SUSPEITOS
+	for i in `cat $IP4DENY`; do
+		DENYCHAIN4=`echo $i | cut -d ';' -f 1`
+		DENYIP4=`echo $i | cut -d ';' -f 2`
+		if [[ $DENYCHAIN4 = "INPUT" ]]; then
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPTABLES -I $DENYCHAIN4 -s $DENYIP4 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 IP $DENYIP4"
+			fi
+			$IPTABLES -I $DENYCHAIN4 -s $DENYIP4 -j DROP
+			elif [[ $DENYCHAIN4 = "OUTPUT" ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -I $DENYCHAIN4 -d $DENYIP4 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 IP $DENYIP4"
+				fi
+				$IPTABLES -I $DENYCHAIN4 -d $DENYIP4 -j DROP
+			elif [[ $DENYCHAIN4 = "FORWARD" ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -I $DENYCHAIN4 -d $DENYIP4 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $DENYIP4"
+				fi
+				$IPTABLES -I $DENYCHAIN4 -d $DENYIP4 -j DROP
+		fi
+	done
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		for i in `cat $IP6DENY`; do
+			DENYCHAIN6=`echo $i | cut -d ';' -f 1`
+			DENYIP6=`echo $i | cut -d ';' -f 2`
+			if [[ $DENYCHAIN6 = "INPUT" ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPV6TABLES -I $DENYCHAIN6 -s $DENYIP6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 IP $DENYIP6"
+				fi
+				$IPV6TABLES -I $DENYCHAIN6 -s $DENYIP6 -j DROP
+				elif [[ $DENYCHAIN6 = "OUTPUT" ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -I $DENYCHAIN6 -d $DENYIP6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 IP $DENYIP6"
+					fi
+					$IPV6TABLES -I $DENYCHAIN6 -d $DENYIP6 -j DROP
+				elif [[ $DENYCHAIN6 = "FORWARD" ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -I $DENYCHAIN6 -d $DENYIP6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $DENYIP6"
+					fi
+					$IPV6TABLES -I $DENYCHAIN6 -d $DENYIP6 -j DROP
+			fi
+		done		
+	fi
+#
+#	LIBERANDO PORTAS NO SERVIDOR
+	for i in `cat $PORTALLOW`; do
+		IOA=`echo $i | cut -d ';' -f 1`
+		PROTOPORTA=`echo $i | cut -d ';' -f 2`
+		NUMPORTA=`echo $i | cut -d ';' -f 3`
+		IPV4ALLOW=`echo $i | cut -d ';' -f 4`
+		IPV6ALLOW=`echo $i | cut -d ';' -f 6`
+		if [[ $IOA = "INPUT" ]] ; then
+			if [ ! -z $IPV4ALLOW ] && [ $IPV4ALLOW != "no" ] ; then
+				AIPV4="-s $IPV4ALLOW"
+				BIPV4="-d $MYIPV4ADDRESS"
+				else
+					AIPV4=""
+					BIPV4=""
+			fi
+			if [ ! -z $IPV6ALLOW ] && [ $IPV6ALLOW != "no" ] ; then
+				AIPV6="-s $IPV6ALLOW"
+				else
+					AIPV6=""
+			fi
+			if [ ! -z $MYIPV6ADDRESS ] && [ $MYIPV6ADDRESS != "::1" ] ; then
+				BIPV6="-d $MYIPV6ADDRESS"
+				else
+					BIPV6=""
+			fi
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPTABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTA"
+			fi
+			$IPTABLES -A $IOA -p $PROTOPORTA $AIPV4 --dport $NUMPORTA $BIPV4 -j ACCEPT
+			if [[ -e $IPV6TABLES ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then			
+					$IPV6TABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTA"
+				fi
+				if [[ $IPV6SUPPORT == "yes" ]]; then
+					$IPV6TABLES -A $IOA -p $PROTOPORTA $AIPV6 --dport $NUMPORTA $BIPV6 -j ACCEPT
+					else
+						$IPV6TABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j DROP
+				fi
+			fi
+			elif [[ $IOA = "OUTPUT" ]]; then
+				if [ ! -z $IPV4ALLOW ] && [ $IPV4ALLOW != "no" ] ; then
+					AIPV4="-s $MYIPV4ADDRESS"
+					BIPV4="-d $IPV4ALLOW"
+					else
+						AIPV4=""
+						BIPV4=""
+				fi
+				if [ ! -z $IPV6ALLOW ] && [ $IPV6ALLOW != "no" ] ; then
+					AIPV6="-s $MYIPV6ADDRESS"
+					else
+						AIPV6=""
+				fi
+				if [ ! -z $MYIPV6ADDRESS ] && [ $MYIPV6ADDRESS != "::1" ]; then
+					BIPV6="-d $IPV6ALLOW"
+					else
+						BIPV6=""
+				fi
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -A $IOA -p $PROTOPORTA --sport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTA"
+				fi
+				$IPTABLES -A $IOA -p $PROTOPORTA $AIPV4 --sport $NUMPORTA $BIPV4 -j ACCEPT
+				if [[ -e $IPV6TABLES ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOA -p $PROTOPORTA --sport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTA"
+					fi
+					if [[ $IPV6SUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOA -p $PROTOPORTA $AIPV6 --sport $NUMPORTA $BIPV6 -j ACCEPT
+						else
+							$IPV6TABLES -A $IOA -p $PROTOPORTA --sport $NUMPORTA -j DROP
+					fi
+				fi
+			elif [[ $IOA = "FORWARD" ]]; then
+				if [ ! -z $IPV4ALLOW ] && [ $IPV4ALLOW != "no" ] ; then
+					AIPV4="-s $MYIPV4ADDRESS"
+					BIPV4="-d $IPV4ALLOW"
+					else
+						AIPV4=""
+						BIPV4=""
+				fi
+				if [ ! -z $IPV6ALLOW ] && [ $IPV6ALLOW != "no" ] ; then
+					AIPV6="-s $MYIPV6ADDRESS"
+					else
+						AIPV6=""
+				fi
+				if [ ! -z $MYIPV6ADDRESS ] && [ $MYIPV6ADDRESS != "::1" ]; then
+					BIPV6="-d $IPV6ALLOW"
+					else
+						BIPV6=""
+				fi
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTA"
+				fi
+				$IPTABLES -A $IOA -p $PROTOPORTA $AIPV4 --dport $NUMPORTA $BIPV4 -j ACCEPT
+				if [[ -e $IPV6TABLES ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTA"
+					fi
+					if [[ $IPV6SUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOA -p $PROTOPORTA $AIPV6 --dport $NUMPORTA $BIPV6 -j ACCEPT
+						else
+							$IPV6TABLES -A $IOA -p $PROTOPORTA --dport $NUMPORTA -j DROP
+					fi
+				fi
+		fi
+	done
+	#
+	$IPTABLES -I INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+	$IPTABLES -I INPUT -m conntrack --ctstate RELATED -j ACCEPT
+	#
+	if [ $IPFORWARDSUPPORT == "yes" ] || [ $NATFORWARDSUPPORT == "yes" ]; then
+		$IPTABLES -A FORWARD -j ACCEPT
+	else
+		$IPTABLES -A FORWARD -j REJECT
+	fi
+	
+	if [[ -e $IPV6TABLES ]]; then
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -I INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+			$IPV6TABLES -I INPUT -m conntrack --ctstate RELATED -j ACCEPT
+			if [ $IPFORWARDSUPPORT == "yes" ] || [ $NATFORWARDSUPPORT == "yes" ]; then
+				$IPV6TABLES -A FORWARD -j ACCEPT
+			else
+				$IPV6TABLES -A FORWARD -j REJECT
+			fi
+			else
+				$IPV6TABLES -I INPUT -m conntrack --ctstate ESTABLISHED -j DROP
+				$IPV6TABLES -I INPUT -m conntrack --ctstate RELATED -j DROP
+				$IPV6TABLES -A FORWARD -j REJECT
+		fi
+	fi
+#
+#
+#	LIBERANDO MAC ADDRESS NO SERVIDOR
+	if [[ $MACADDRESSSTOIPSUPPORT == "yes" ]]; then
+		for i in `cat $IPV4TOMACALLOW`; do
+			IPV4ADMAC=`echo $i | cut -d ';' -f 1`
+			IPV4TOMAC=`echo $i | cut -d ';' -f 2`
+			MACTOIPV4=`echo $i | cut -d ';' -f 3`
+			NAMEIPV4TOMAC=`echo $i | cut -d ';' -f 4`
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPTABLES -A INPUT -s $IPV4TOMAC -m mac --mac-source $MACTOIPV4 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 $IPV4TOMAC TO MAC $MACTOIPV4 FOR $NAMEIPV4TOMAC"
+			fi
+			case "$IPV4ADMAC" in
+				a ) 
+					$IPTABLES -A INPUT -s $IPV4TOMAC -m mac --mac-source $MACTOIPV4 -j ACCEPT
+				;;
+				d )
+					$IPTABLES -A INPUT -s $IPV4TOMAC -m mac --mac-source $MACTOIPV4 -j DROP
+				;;
+				*)
+					$IPTABLES -A INPUT -s $IPV4TOMAC -m mac --mac-source $MACTOIPV4 -j DROP
+				;;
+			esac
+		done
+		if [[ -e $IPV6TABLES ]]; then
+			if [[ $IPV6SUPPORT == "yes" ]]; then
+				for i in `cat $IPV6TOMACALLOW`; do
+					IPV6ADMAC=`echo $i | cut -d ';' -f 1`
+					IPV6TOMAC=`echo $i | cut -d ';' -f 2`
+					MACTOIPV6=`echo $i | cut -d ';' -f 3`
+					NAMEIPV6TOMAC=`echo $i | cut -d ';' -f 4`
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -A INPUT -s $IPV6TOMAC -m mac --mac-source $MACTOIPV6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 $IPV6TOMAC TO MAC $MACTOIPV6 FOR $NAMEIPV6TOMAC"
+					fi
+					case "$IPV6ADMAC" in
+						a ) 
+							$IPV6TABLES -A INPUT -s $IPV6TOMAC -m mac --mac-source $MACTOIPV6 -j ACCEPT
+						;;
+						d )
+							$IPV6TABLES -A INPUT -s $IPV6TOMAC -m mac --mac-source $MACTOIPV6 -j DROP
+						;;
+						*)
+							$IPV6TABLES -A INPUT -s $IPV6TOMAC -m mac --mac-source $MACTOIPV6 -j DROP
+						;;
+					esac
+				done				
+			fi
+		fi
+		else if [[ $MACADDRESSSUPPORT == "yes" ]]; then
+			for i in `cat $MACALLOW`; do
+				ADMAC=`echo $i | cut -d ';' -f 1`
+				MACTO=`echo $i | cut -d ';' -f 2`
+				NAMETOMAC=`echo $i | cut -d ';' -f 3`
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -A INPUT -m mac --mac-source $MACTO -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:MAC $MACTO FOR $NAMETOMAC"
+				fi
+				case "$ADMAC" in
+					a ) 
+						$IPTABLES -A INPUT -m mac --mac-source $MACTO -j ACCEPT
+					;;
+					d )
+						$IPTABLES -A INPUT -m mac --mac-source $MACTO -j DROP
+					;;
+					*)
+						$IPTABLES -A INPUT -m mac --mac-source $MACTO -j DROP
+					;;
+				esac
+			done
+		fi
+	fi
+
+#
+#
+#	ATIVANDO REDIRECIONAMENTO IP_FORWARD NO SERVIDOR
+	if [[ $IPFORWARDSUPPORT == "yes" ]]; then
+		$MYSYSCTL -w net.ipv4.ip_forward="1" 1> /dev/null 2> /dev/stdout
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$MYSYSCTL -w net.ipv6.conf.all.forwarding="1" 1> /dev/null 2> /dev/stdout
+		fi
+		$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+
+		#	REDIRECIONAMENTO DE PORTAS
+		for i in `cat $REDILIST`; do
+			REDIPROTO=`echo $i | cut -d ';' -f 1` #recebe o protocolo a ser redirecionado
+			REDIPORT=`echo $i | cut -d ';' -f 2` #recebe a porta origem
+			NEWIP=`echo $i | cut -d ';' -f 3` #recebe o ip destino
+			NEWPORT=`echo $i | cut -d ';' -f 4` #recebe a porta destino
+			NEWHOST=`echo $i | cut -d ';' -f 5` #recebe o nome do host destino
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPTABLES -t nat -A PREROUTING -p $REDIPROTO -i $IPFORWARDETH --dport $REDIPORT -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 REDIPORT $NEWHOST"
+			fi
+			$IPTABLES -A FORWARD -p $REDIPROTO --dport $REDIPORT -j ACCEPT
+			$IPTABLES -t nat -A PREROUTING -p $REDIPROTO -i $IPFORWARDETH --dport $REDIPORT -j DNAT --to $NEWIP:$NEWPORT
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -A FORWARD -p $REDIPROTO --dport $REDIPORT -j ACCEPT
+			$IPV6TABLES -t nat -A PREROUTING -p $REDIPROTO -i $IPFORWARDETH --dport $REDIPORT -j DNAT --to-destination $NEWIP:$NEWPORT
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPV6TABLES -t nat -A PREROUTING -p $REDIPROTO -i $IPFORWARDETH --dport $REDIPORT -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 REDIPORT $NEWHOST"
+			fi
+		fi
+		done
+	fi
+
+#       ATIVANDO COMPARTILHAMENTO DE INTERNET (GATEWAY NAT)
+    if [[ $NATFORWARDSUPPORT == "yes" ]]; then
+        $MYSYSCTL -w net.ipv4.ip_forward="1" 1> /dev/null 2> /dev/stdout
+        $MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+
+        if [[ $PROXYTRANSPARENTSUPPORT == "yes" ]]; then
+            $IPTABLES -t nat -A PREROUTING -i $NATFORWARDETHIN -p tcp --dport 80 -j REDIRECT --to-port $PROXYTRANSPARENTHTTPSQUIDPORT
+            $IPTABLES -t nat -A PREROUTING  -i $NATFORWARDETHIN -s $MYIPV4ADDRESS -p tcp --dport 80 -j ACCEPT
+
+        fi
+        if [[ $PROXYTRANSPARENTREDIRECTHTTPSTOSQUID == "yes" ]]; then
+            $IPTABLES -t nat -A PREROUTING -i $NATFORWARDETHIN -p tcp --dport 443 -j REDIRECT --to-port $PROXYTRANSPARENTHTTPSSQUIDPORT
+            $IPTABLES -t nat -A PREROUTING  -i $NATFORWARDETHIN -s $MYIPV4ADDRESS -p tcp --dport 443 -j ACCEPT
+        fi
+        $IPTABLES -A INPUT -i $NATFORWARDETHOUT -j ACCEPT
+        $IPTABLES -A FORWARD -i $NATFORWARDETHOUT -o $NATFORWARDETHIN -s $NATIPV4RANGEALLOW -m conntrack --ctstate NEW -j ACCEPT
+        $IPTABLES -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        $IPTABLES -A POSTROUTING -o $NATFORWARDETHOUT -t nat -j MASQUERADE
+        $IPTABLES -A INPUT -p tcp --syn -s $NATIPV4RANGEALLOW -j ACCEPT
+        if [[ $LOGSUPPORT == "yes" ]]; then
+            $IPTABLES A POSTROUTING -o $NATFORWARDETHOUT -t nat -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 NAT $NATFORWARDETHIN"
+        fi
+        if [[ $IPV6SUPPORT == "yes" ]]; then
+            $MYSYSCTL -w net.ipv6.conf.all.forwarding="1" 1> /dev/null 2> /dev/stdout
+            $MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+            if [[ $PROXYTRANSPARENTSUPPORT == "yes" ]]; then
+                $IPV6TABLES -t nat -A PREROUTING -i $NATFORWARDETHIN -p tcp --dport 80 -j REDIRECT --to-port $PROXYTRANSPARENTHTTPSQUIDPORT
+                $IPV6TABLES -t nat -A PREROUTING  -i $NATFORWARDETHIN -s $MYIPV6ADDRESS -p tcp --dport 80 -j ACCEPT
+            fi
+            if [[ $PROXYTRANSPARENTREDIRECTHTTPSTOSQUID == "yes" ]]; then
+                $IPV6TABLES -t nat -A PREROUTING -i $NATFORWARDETHIN -p tcp --dport 443 -j REDIRECT --to-port $PROXYTRANSPARENTHTTPSSQUIDPORT
+                $IPV6TABLES -t nat -A PREROUTING  -i $NATFORWARDETHIN -s $MYIPV6ADDRESS -p tcp --dport 443 -j ACCEPT
+            fi
+            $IPV6TABLES -A INPUT -i $NATFORWARDETHOUT -j ACCEPT
+            $IPV6TABLES -A FORWARD -i $NATFORWARDETHOUT -o $NATFORWARDETHIN -s $NATIPV6RANGEALLOW -m conntrack --ctstate NEW -j ACCEPT
+            $IPV6TABLES -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+            $IPV6TABLES -A POSTROUTING -o $NATFORWARDETHOUT -t nat -j MASQUERADE
+            $IPV6TABLES -A INPUT -p tcp --syn -s $NATIPV6RANGEALLOW -j ACCEPT
+            if [[ $LOGSUPPORT == "yes" ]]; then
+                $IPV6TABLES -A POSTROUTING -o $NATFORWARDETHIN -t nat -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 NAT $NATFORWARDETHIN"
+            fi
+        fi
+    fi
+#
+
+#==============| DECLARACAO DE BLOQUEIOS |=================
+#	BLOQUEANDO PORTAS NO SERVIDOR
+	for i in `cat $PORTDENY`; do
+		IOD=`echo $i | cut -d ';' -f 1`
+		PROTOPORTD=`echo $i | cut -d ';' -f 2`
+		NUMPORTD=`echo $i | cut -d ';' -f 3`
+		if [[ $IOD = "INPUT" ]]; then
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPTABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTD"
+			fi
+			$IPTABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j DROP
+			if [[ -e $IPV6TABLES ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPV6TABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTD"
+				fi
+				if [[ $IPV6SUPPORT == "yes" ]]; then
+					$IPV6TABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j DROP
+				fi
+			fi
+			elif [[ $IOD = "OUTPUT" ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -A $IOD -p $PROTOPORTD --sport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTD"
+				fi
+				if [[ $IPV6SUPPORT == "yes" ]]; then
+					$IPTABLES -A $IOD -p $PROTOPORTD --sport $NUMPORTD -j DROP
+				fi
+				if [[ -e $IPV6TABLES ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOD -p $PROTOPORTD --sport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTD"
+					fi
+					if [[ $IPV6SUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOD -p $PROTOPORTD --sport $NUMPORTD -j DROP
+					fi
+				fi
+			elif [[ $IOD = "FORWARD" ]]; then
+				if [[ $LOGSUPPORT == "yes" ]]; then
+					$IPTABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv4 PORT $NUMPORTD"
+				fi
+				$IPTABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j DROP
+				if [[ -e $IPV6TABLES ]]; then
+					if [[ $LOGSUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPv6 PORT $NUMPORTD"
+					fi
+					if [[ $IPV6SUPPORT == "yes" ]]; then
+						$IPV6TABLES -A $IOD -p $PROTOPORTD --dport $NUMPORTD -j DROP
+					fi
+				fi
+		fi
+	done
+#
+#	BLOQUEANDO ATAQUES ARP/IP-SPOOFING
+    if [[ -e $SYSCTLCONF ]]; then
+        $MYSYSCTL -w net.ipv4.conf.all.rp_filter="1" 1> /dev/null 2> /dev/stdout
+        $MYSYSCTL -w net.ipv4.conf.all.accept_source_route="0" 1> /dev/null 2> /dev/stdout
+        $MYSYSCTL -w net.ipv4.conf.all.log_martians="1" 1> /dev/null 2> /dev/stdout
+        $MYSYSCTL -w net.ipv4.conf.all.accept_redirects="0" 1> /dev/null 2> /dev/stdout
+
+        if [[ $IPV6SUPPORT == "yes" ]]; then
+			$MYSYSCTL -w net.ipv6.conf.all.accept_source_route="0" 1> /dev/null 2> /dev/stdout
+			$MYSYSCTL -w net.ipv6.conf.all.accept_redirects="0" 1> /dev/null 2> /dev/stdout
+			else
+				$MYSYSCTL -w net.ipv6.conf.all.accept_source_route="1" 1> /dev/null 2> /dev/stdout
+				$MYSYSCTL -w net.ipv6.conf.all.accept_redirects="1" 1> /dev/null 2> /dev/stdout
+		fi
+		$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+    fi
+	$IPTABLES -A INPUT -s 0.0.0.0/8 -j DROP
+	$IPTABLES -A INPUT -d 0.0.0.0/8 -j DROP
+	$IPTABLES -A INPUT -s 10.0.0.0/8 -j DROP
+	$IPTABLES -A INPUT -s 127.0.0.0/8 -j DROP
+	$IPTABLES -A INPUT -s 169.254.0.0/16 -j DROP
+	$IPTABLES -A INPUT -s 172.16.0.0/12 -j DROP
+	$IPTABLES -A INPUT -s 192.168.1.0/16 -j DROP
+	$IPTABLES -A INPUT -s 224.0.0.0/4 -j DROP
+	$IPTABLES -A INPUT -d 224.0.0.0/4 -j DROP
+	$IPTABLES -A INPUT -d 239.255.255.0/24 -j DROP
+	$IPTABLES -A INPUT -s 240.0.0.0/5 -j DROP
+	$IPTABLES -A INPUT -d 240.0.0.0/5 -j DROP
+	$IPTABLES -A INPUT -d 255.255.255.255 -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		$IPV6TABLES -A INPUT -s ::1/128 -j DROP
+		$IPV6TABLES -A INPUT -d ::1/128 -j DROP
+		$IPV6TABLES -A INPUT -s fc00::/7 -j DROP
+		$IPV6TABLES -A INPUT -d fc00::/7 -j DROP
+		$IPV6TABLES -A INPUT -s fe80::/10 -j DROP
+		$IPV6TABLES -A INPUT -d fe80::/10 -j DROP
+		#$IPV6TABLES -A INPUT -s ffe80::/64 -j DROP
+		$IPV6TABLES -A INPUT -d ff00::/8 -j DROP
+	fi
+#
+#	REGRAS DE ICMP - PING
+	if [[ $ICMPSUPPORT == "yes" ]]; then
+		$MYSYSCTL -w net.ipv4.icmp_echo_ignore_all="0" 1> /dev/null 2> /dev/stdout
+		$MYSYSCTL -w net.ipv4.icmp_echo_ignore_broadcasts="0" 1> /dev/null 2> /dev/stdout
+		$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+	#
+		$IPTABLES -A INPUT -s $ICMPIPV4RANGEALLOW -p icmp --icmp-type echo-request -j ACCEPT
+		if [[ $LOGSUPPORT == "yes" ]]; then
+			$IPTABLES -A INPUT -s $ICMPIPV4RANGEALLOW -p icmp --icmp-type echo-request -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 ICMP-PING"
+		fi
+		#
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -A INPUT -s $ICMPIPV6RANGEALLOW -p icmpv6 --icmpv6-type echo-request -j ACCEPT
+			if [[ $LOGSUPPORT == "yes" ]]; then
+				$IPV6TABLES -A INPUT -s $ICMPIPV6RANGEALLOW -p icmpv6 --icmpv6-type echo-request -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV6 ICMP-PING"
+			fi
+		fi
+	#
+	elif [[ $ICMPSUPPORT == "no" ]]; then
+		$MYSYSCTL -w net.ipv4.icmp_echo_ignore_all="1" 1> /dev/null 2> /dev/stdout
+		$MYSYSCTL -w net.ipv4.icmp_echo_ignore_broadcasts="1" 1> /dev/null 2> /dev/stdout
+		$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+	#
+		$IPTABLES -A INPUT -p icmp --icmp-type echo-request -j DROP
+		if [[ $IPV6SUPPORT == "yes" ]]; then
+			$IPV6TABLES -A INPUT -p icmpv6 --icmpv6-type echo-request -j DROP
+		fi
+	else
+		nosintax
+	fi
+	#
+#
+#	IGNORAR RESPOSTA FAKE DE ICMP
+	$MYSYSCTL -w net.ipv4.icmp_ignore_bogus_error_responses="1" 1> /dev/null 2> /dev/stdout
+	$MYSYSCTL -w net.ipv4.conf.all.secure_redirects="1" 1> /dev/null 2> /dev/stdout
+	$MYSYSCTL -w net.ipv4.conf.all.shared_media="1" 1> /dev/null 2> /dev/stdout
+	$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+	#
+	$IPTABLES -A INPUT   -m conntrack --ctstate INVALID -j DROP
+	$IPTABLES -A FORWARD -m conntrack --ctstate INVALID -j DROP
+	$IPTABLES -A OUTPUT  -m conntrack --ctstate INVALID -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		$IPV6TABLES -A INPUT   -m conntrack --ctstate INVALID -j DROP
+		$IPV6TABLES -A FORWARD -m conntrack --ctstate INVALID -j DROP
+		$IPV6TABLES -A OUTPUT  -m conntrack --ctstate INVALID -j DROP
+	fi
+#
+#	BLOQUEANDO ATAQUES SYN-FLOOD
+	$MYSYSCTL -w net.ipv4.tcp_syncookies="1" 1> /dev/null 2> /dev/stdout
+	$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+	#
+	$IPTABLES -N SYN-FLOOD
+	$IPTABLES -A INPUT -p tcp --syn -j SYN-FLOOD
+	$IPTABLES -I FORWARD -p tcp --syn -j SYN-FLOOD
+	$IPTABLES -A SYN-FLOOD -m limit --limit 1/s --limit-burst 4 -j RETURN
+	if [[ $LOGSUPPORT == "yes" ]]; then
+		$IPTABLES -A SYN-FLOOD -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 SYN-FLOOD"
+	fi
+	$IPTABLES -A SYN-FLOOD -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		$IPV6TABLES -N SYN-FLOOD6
+		$IPV6TABLES -A INPUT -p tcp --syn -j SYN-FLOOD6
+		$IPV6TABLES -I FORWARD -p tcp --syn -j SYN-FLOOD6
+		$IPV6TABLES -A SYN-FLOOD6 -m limit --limit 1/s --limit-burst 4 -j RETURN
+		if [[ $LOGSUPPORT == "yes" ]]; then
+			$IPV6TABLES -A SYN-FLOOD6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV6 SYN-FLOOD"
+		fi
+		$IPV6TABLES -A SYN-FLOOD6 -j DROP
+	fi
+#
+#	BLOQUEANDO ATAQUES BRUT-FORCE SSH
+	$IPTABLES -N SSH-BRUT-FORCE
+	$IPTABLES -A INPUT -p tcp --dport $SSHDNEWPORT -j SSH-BRUT-FORCE
+	$IPTABLES -A SSH-BRUT-FORCE -m limit --limit 1/s --limit-burst 4 -j RETURN
+	if [[ $LOGSUPPORT == "yes" ]]; then
+		$IPTABLES -A SSH-BRUT-FORCE -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 SSH-BRUT-FORCE PORT $SSHDNEWPORT"
+	fi
+	$IPTABLES -A SSH-BRUT-FORCE -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		$IPV6TABLES -N SSH-BRUT-FORCE6
+		$IPV6TABLES -A INPUT -p tcp --dport $SSHDNEWPORT -j SSH-BRUT-FORCE6
+		$IPV6TABLES -A SSH-BRUT-FORCE6 -m limit --limit 1/s --limit-burst 4 -j RETURN
+		if [[ $LOGSUPPORT == "yes" ]]; then
+			$IPV6TABLES -A SSH-BRUT-FORCE6 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 SSH-BRUT-FORCE POTR $SSHDNEWPORT"
+		fi
+		$IPV6TABLES -A SSH-BRUT-FORCE6 -j DROP
+	fi
+#
+#	DESABILITAR NOTIFICAÇÃO DE PACOTES CONGESTIONADOS
+	$MYSYSCTL -w net.ipv4.tcp_ecn="0" 1> /dev/null 2> /dev/stdout
+	$MYSYSCTL -p 1> /dev/null 2> /dev/stdout
+#
+#	BLOQUEANDO PACOTES FAKE
+	#$IPTABLES -A PREROUTING -t raw -m rpfilter --invert -j DROP # Suporte iptables 1.4.13+
+	$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+	$IPTABLES -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+	$IPTABLES -A INPUT -f -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		#$IPV6TABLES -A PREROUTING -t raw -m rpfilter --invert -j DROP # Suporte iptables 1.4.13+
+		$IPV6TABLES -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+		$IPV6TABLES -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+	fi
+#
+#	BLOQUEANDO ATAQUES STEALTHSCAN
+	if [[ $LOGSUPPORT == "yes" ]]; then
+		$IPTABLES -A INPUT -p tcp --tcp-flags ACK,FIN FIN -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 SHEALTSCAN"
+	fi
+	$IPTABLES -A INPUT -p tcp --tcp-flags ACK,FIN FIN -j DROP
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,PSH,URG -j DROP 
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,ACK,URG -j DROP 
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,PSH,ACK,URG -j DROP 
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP 
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP 
+	$IPTABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		if [[ $LOGSUPPORT == "yes" ]]; then
+			$IPV6TABLES -A INPUT -p tcp --tcp-flags ACK,FIN FIN -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV6 SHEALTSCAN"
+		fi
+		$IPV6TABLES -A INPUT -p tcp --tcp-flags ACK,FIN FIN -j DROP
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,PSH,URG -j DROP 
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,ACK,URG -j DROP 
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,PSH,ACK,URG -j DROP 
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP 
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP 
+		$IPV6TABLES -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
+	fi
+#
+#	BLOQUEANDO ATAQUES PORTSCAN
+#	AO IDENTIFICAR O ATAQUE, BLOQUEAR ATACANTE POR 4 HORAS E ENTAO LIBERAR (3600 x 4 = 14400 Seconds)
+	if [[ $LOGSUPPORT == "yes" ]]; then
+		$IPTABLES -A INPUT   -m recent --name portscan --rcheck --seconds 14400 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 PORTSCAN"
+		$IPTABLES -A FORWARD -m recent --name portscan --rcheck --seconds 14400 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV4 PORTSCAN"
+	fi
+	$IPTABLES -A INPUT   -m recent --name portscan --rcheck --seconds 14400 -j DROP
+	$IPTABLES -A FORWARD -m recent --name portscan --rcheck --seconds 14400 -j DROP
+	$IPTABLES -A INPUT   -m recent --name portscan --remove
+	$IPTABLES -A FORWARD -m recent --name portscan --remove
+	if [[ $IPV6SUPPORT == "yes" ]]; then
+		if [[ $LOGSUPPORT == "yes" ]]; then
+			$IPV6TABLES -A INPUT   -m recent --name portscan --rcheck --seconds 14400 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV6 PORTSCAN"
+			$IPV6TABLES -A FORWARD -m recent --name portscan --rcheck --seconds 14400 -j LOG --log-level $LOGSLEVEL --log-prefix "FIREWALL:IPV6 PORTSCAN"
+		fi
+		$IPV6TABLES -A INPUT   -m recent --name portscan --rcheck --seconds 14400 -j DROP
+		$IPV6TABLES -A FORWARD -m recent --name portscan --rcheck --seconds 14400 -j DROP
+		$IPV6TABLES -A INPUT   -m recent --name portscan --remove
+		$IPV6TABLES -A FORWARD -m recent --name portscan --remove
+	fi
+	;;
+	*)
+        FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}                ERRO DE SINTAX NO CODIGO!               ${TXTGREEN}|"
+        footer
+        sleep 1
+        exit 127
+esac

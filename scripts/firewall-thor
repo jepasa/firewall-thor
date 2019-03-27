@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# firewall-thor V3.8 Start up the firewall-thor daemon
+#
+# chkconfig: 2345 2 95
+# description: Script for IPTABLES firewall on support of IPv4 and IPv6
+#
+# processname: firewall-thor
+# config: /opt/firewall-thor/firewall-thor.conf
+#
+### BEGIN INIT INFO
+# Provides:          Firewall-Thor
+# Required-Start:    $local_fs $network $named $time $syslog
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       Script for IPTABLES firewall on support of IPv4 and IPv6
+### END INIT INFO
+case "$1" in
+        start)
+                /opt/firewall-thor/firewall-thor.sh start
+        ;;
+        stop)
+                /opt/firewall-thor/firewall-thor.sh stop
+        ;;
+        restart)
+                /opt/firewall-thor/firewall-thor.sh stop
+                /opt/firewall-thor/firewall-thor.sh start
+        ;;
+        status)
+                /opt/firewall-thor/firewall-thor.sh status
+        ;;
+        menu)
+                /opt/firewall-thor/firewall-thor.sh menu
+        ;;
+        *)
+        echo -e "\n * Usage: /etc/init.d/firewall-thor {start|stop|restart|status|menu} \n"
+esac

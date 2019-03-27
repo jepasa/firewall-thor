@@ -1,0 +1,233 @@
+#!/bin/bash 
+#DESCRIPTION = "Firewall Script to IPv4 and IPv6"      #
+#PROCESSNAME = "firewall-thor.sh"                      #
+#VERSION = "5.3.2"                                     #
+#CREATED_BY = "Jeferson Padilha. All rigths reserved." #
+#LICENSE = "MIT License"                               #
+#E-MAIL = "jepasa@jepasa.com"                          #
+#WEBSITE = "http://www.jepasa.com/"                    #
+#USABILITY = "start|stop|restart|menu"                 #
+########################################################
+#           See README.txt to Configurations           #
+########################################################
+#==============| DECLARACAO DE FUNCOES |=================
+function check_backup() {
+	if [ -e $THORBACKUPS/sysctl.conf-bkp_origianl ]; then
+		cp -r $SYSCTLCONF $THORBACKUPS/sysctl.conf-bkp_`date +%d%m%Y_%H%M%S`
+	else
+		cp -r $SYSCTLCONF $THORBACKUPS/sysctl.conf-bkp_origianl
+	fi
+	if [ -e /etc/hosts.allow ]; then
+		if [ -e $THORBACKUPS/hosts.allow-bkp_origianl ]; then
+			cp -r $HOSTSALLOWCONF $THORBACKUPS/hosts.allow-bkp_`date +%d%m%Y_%H%M%S`
+		else
+			cp -r $HOSTSALLOWCONF $THORBACKUPS/hosts.allow-bkp_origianl
+		fi
+	fi
+	if [ -e $THORBACKUPS/hosts.deny-bkp_origianl ]; then
+		cp -r $HOSTSDENYCONF $THORBACKUPS/hosts.deny-bkp_`date +%d%m%Y_%H%M%S`
+	else
+		cp -r $HOSTSDENYCONF $THORBACKUPS/hosts.deny-bkp_origianl
+	fi
+	if [ -e $SSHDPATH ]; then
+		if [ -e $THORBACKUPS/sshd_config-bkp_origianl ]; then
+			cp -r $SSHDPATH $THORBACKUPS/sshd_config-bkp_`date +%d%m%Y_%H%M%S`
+		else
+			cp -r $SSHDPATH $THORBACKUPS/sshd_config-bkp_origianl
+		fi
+	fi
+	if [ -e $THORBACKUPS/gc_thresh1-bkp_origianl ]; then
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh1 $THORBACKUPS/gc_thresh1-bkp_`date +%d%m%Y_%H%M%S`
+	else
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh1 $THORBACKUPS/gc_thresh1-bkp_origianl
+	fi
+	if [ -e $THORBACKUPS/gc_thresh2-bkp_origianl ]; then
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh2 $THORBACKUPS/gc_thresh2-bkp_`date +%d%m%Y_%H%M%S`
+	else
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh2 $THORBACKUPS/gc_thresh2-bkp_origianl
+	fi
+	if [ -e $THORBACKUPS/gc_thresh3-bkp_origianl ]; then
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh3 $THORBACKUPS/gc_thresh3-bkp_`date +%d%m%Y_%H%M%S`
+	else
+		cp -r $SYSNEIGHBOURIPV4/gc_thresh3 $THORBACKUPS/gc_thresh3-bkp_origianl
+	fi
+}
+function check_user() {
+	if [ $(id -u) -ne 0 ]; then
+        FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}     VOCE PRECISA DOS PODERES ROOT PARA O FIREWALL!     ${TXTGREEN}|"
+        footer
+        sleep 3
+        exit 1
+	fi
+}
+function check_author() {
+	if [ $CREATED_BY -ne "Jeferson Padilha. All rigths reserved." ]; then
+	FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}           VOCE REMOVEU OS CREDITOS DO SCRIPT           ${TXTGREEN}|"
+        footer
+        sleep 3
+        exit 1
+	fi
+}
+function check_iptables(){
+	if [ ! -e $IPTABLES ]; then
+		nosupport
+	fi
+	if [ $IPV6SUPPORT == "yes" ]; then
+		if [ ! -e $IPV6TABLES ]; then
+			nosupport
+		fi
+	fi
+}
+function check_modules(){
+	if [ -e $MODPROBE ]; then
+		$IPTABLESMODULES
+	else
+		nosupport
+	fi
+}
+function clean_iptables(){
+	#IPv4
+	$IPTABLES -F
+	$IPTABLES -F INPUT
+	$IPTABLES -F OUTPUT
+	$IPTABLES -F FORWARD
+	$IPTABLES -t mangle -F
+	$IPTABLES -t nat -F
+	$IPTABLES -X
+	$IPTABLES -Z
+	$IPTABLES -P INPUT ACCEPT
+	$IPTABLES -P OUTPUT ACCEPT
+	$IPTABLES -P FORWARD ACCEPT
+	#IPv6
+	if [ -e $IPV6TABLES ]; then
+		$IPV6TABLES -F
+		$IPV6TABLES -F INPUT
+		$IPV6TABLES -F OUTPUT
+		$IPV6TABLES -F FORWARD
+		$IPV6TABLES -t mangle -F
+		$IPV6TABLES -t mangle -X
+		$IPV6TABLES -X
+		$IPV6TABLES -Z
+		$IPV6TABLES -P INPUT ACCEPT
+		$IPV6TABLES -P OUTPUT ACCEPT
+		$IPV6TABLES -P FORWARD ACCEPT
+	fi
+}
+function check_status(){
+		echo -e "${TXTGREEN}                            | |"
+	    echo -e " |========================|${TXTRED} IPv4 ${TXTGREEN}|========================|"
+	    echo -n "${TXTRED}"
+	    $IPTABLES -L -nvx
+	    echo $TXTRESET
+	    if [ -e $IPV6TABLES ]; then
+	    	echo -e "${TXTGREEN} |========================|${TXTRED} IPv6 ${TXTGREEN}|========================|"
+		    echo -n "${TXTRED}"
+		    $IPV6TABLES -L -nvx
+		fi
+	    echo $TXTGREEN
+	    echo -e "${TXTGREEN} |========================================================|"
+	    echo $TXTRESET
+}
+function check_logs(){
+		echo -e "${TXTGREEN}                            | |"
+	    echo -e " |========================|${TXTRED} IPv4 ${TXTGREEN}|========================|"
+	    if [ -e /var/log/kern.log ]; then
+	    	echo $TXTRED
+	    	cat /var/log/kern.log | grep [FIREWALL:IPV4]
+	    else
+	    	echo -e "${TXTRED}ERRO: Arquivo /var/log/kern.log não encontrado! ${TXTGREEN}"
+	    fi
+	    if [ $IPV6SUPPORT == "yes" ]; then
+		    echo -e "${TXTGREEN} |========================|${TXTRED} IPv6 ${TXTGREEN}|========================|"
+			if [ -e /var/log/kern.log ]; then
+		    	echo $TXTRED
+		    	cat /var/log/kern.log | grep [FIREWALL:IPV6]
+		    else
+		    	echo -e "${TXTRED}ERRO: Arquivo /var/log/kern.log não encontrado! ${TXTGREEN}"
+		    fi
+		fi
+	    echo $TXTGREEN
+	    echo -e " |========================================================|"
+	    echo $TXTRESET
+}
+function header() {
+		echo -e ""
+		echo -e "${TXTGREEN} |========================================================|"
+		echo -e " |${TXTYELLOW}                     FIREWALL-THOR                      ${TXTGREEN}|"
+		echo -e " |--------------------------------------------------------|"
+		echo -e "${HEADERPRINT}"
+		echo -e "${TXTGREEN} |========================================================|"
+		echo -e "                            | |${TXTRESET}"
+}
+function footer() {
+		echo -e "${TXTGREEN}                            | |"
+		echo -e " |======================|${TXTRED} ATENCAO ${TXTGREEN}|=======================|"
+		echo -e "${FOOTERPRINT}"
+		echo -e "${TXTGREEN} |========================================================|"
+		echo $TXTRESET
+		sleep 1
+		exit 0
+}
+function check_menu(){
+		echo -e "${TXTGREEN} |========================================================|"
+		echo -e " | Digite o numero equivalente a opcao desejada.          |"
+		echo -e " |                                                        |"
+		echo -e " | 1 - Start o Firewall;                                  |"
+		echo -e " | 2 - Stop o Firewall;                                   |"
+		echo -e " | 3 - Restart o Firewall;                                |"
+		echo -e " | 4 - Ver o status do Firewall;                          |"
+		echo -e " | 5 - Listar os logs do Firewall;                        |"
+		echo -e " | 0 - Sair deste menu;                                   |"
+		echo -e " |========================================================|"
+		echo -e "                            | |"
+		echo -e " |=======================|${TXTYELLOW} DIGITO ${TXTGREEN}|=======================|"
+		echo -n " | => ${TXTYELLOW}"
+		read mymenu
+		echo -e "${TXTGREEN} |========================================================|"
+		echo -e "${TXTRESET}"
+		case  "$mymenu" in
+			1)
+				$PROGRAM start
+			;;
+			2)
+				$PROGRAM stop
+			;;
+			3)
+				$PROGRAM stop
+				$PROGRAM start
+			;;
+			4)
+				$PROGRAM status
+			;;
+			5)
+				$PROGRAM logs
+			;;
+			0)
+				exit 0
+			;;
+			*)
+				HEADERPRINT="${TXTGREEN} |${TXTYELLOW}                   ARGUMENTO INVALIDO                   ${TXTGREEN}|"
+				FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}                SAINDO DESTE APLICATIVO                 ${TXTGREEN}|"
+				header
+				footer
+				sleep 1
+				exit 1
+			;;		
+		esac
+}
+function nosupport() {
+        FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}                 SISTEMA NAO SUPORTADO!                 ${TXTGREEN}|"
+        footer
+        sleep 1
+        exit 127
+}
+function nosintax() {
+        FOOTERPRINT="${TXTGREEN} |${TXTYELLOW}                ERRO DE SINTAX NO CODIGO!               ${TXTGREEN}|"
+        clean_iptables
+        footer
+        sleep 1
+        exit 127
+}
+function check_source() {
+	. $THORSOURCE run
+}
